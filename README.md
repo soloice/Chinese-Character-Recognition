@@ -5,7 +5,7 @@ This code is based on a similar [repo](https://github.com/burness/tensorflow-101
 
 Moreover, Training only 8000 steps (~5 hour on my workstation with 8 CPU cores and 32 GB RAM) achieves a top 1 accuracy of 69.3% and a top 3 accuracy of 83.9%. If you have a GPU card, it should be much more faster.
 
-The repo owner kindly shared the [preprocessed dataset](https://pan.baidu.com/s/1o84jIrg#list/path=%2F)
+The repo owner above also kindly shared the [preprocessed dataset](https://pan.baidu.com/s/1o84jIrg#list/path=%2F)
 
 For training, run:
 ---------------
