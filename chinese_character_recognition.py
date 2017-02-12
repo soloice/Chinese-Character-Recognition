@@ -1,5 +1,3 @@
-# top 1 accuracy 0.5540008378718057 top k accuracy 0.7541684122329284 with default settings.
-
 import tensorflow as tf
 import os
 import random
@@ -82,7 +80,6 @@ class DataIterator:
         images = tf.image.resize_images(images, new_size)
         image_batch, label_batch = tf.train.shuffle_batch([images, labels], batch_size=batch_size, capacity=50000,
                                                           min_after_dequeue=10000)
-        # print 'image_batch', image_batch.get_shape()
         return image_batch, label_batch
 
 
