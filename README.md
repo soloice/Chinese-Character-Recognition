@@ -9,9 +9,24 @@ The repo owner above also kindly shared the [preprocessed dataset](https://pan.b
 
 For training, run:
 ---------------
-`python --mode=train --max_steps=12002 --eval_steps=50 --save_steps=4000`
+`python chinese_character_recognition.py --mode=train --max_steps=12002 --eval_steps=50 --save_steps=4000`
 
 For validation, run:
 --------------
-`python --mode=validation`
+`python chinese_character_recognition.py --mode=validation`
+
+
+For the version using batch normalization, run:
+
+`python chinese_character_recognition_bn.py --mode=train --max_steps=8002 --eval_steps=100 --save_steps=1000`
+or
+
+`python chinese_character_recognition_bn.py --mode=validation`
+
+After training only 8000 mini-batches, which takes ~16h on my workstation, gives a top 1 accuracy of 90.26% and top 3 accuracy of 96.48%. Note that the network hasn't fully convergenced yet (though almost), so training for a longer time should be able to improve the performance furthur. As reported in [this project report](http://cs231n.stanford.edu/reports/zyh_project.pdf), the network has the potential to achieve a top 1 accuracy of 95% when properly trained (maybe even better, since in the aforementioned paper they didn't use batch normalization, which should improve generalization capacity of the network). So if you have a powerful GPU, run more training steps.
+
+
+I also attached the learning curve of `chinese_character_recognition_bn.py`. Check it to obtain some intuition of the learning procedure.
+![accuracy-bn](https://github.com/soloice/Chinese-Character-Recognition/blob/master/accuracy-bn.PNG)
+![loss-bn](https://github.com/soloice/Chinese-Character-Recognition/blob/master/loss-bn.PNG)
 
