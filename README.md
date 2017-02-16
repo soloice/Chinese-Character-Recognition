@@ -17,13 +17,17 @@ For validation, run:
 
 
 For the version using batch normalization, run:
+---------------
 
 `python chinese_character_recognition_bn.py --mode=train --max_steps=8002 --eval_steps=100 --save_steps=1000`
+
 or
 
 `python chinese_character_recognition_bn.py --mode=validation`
 
 After training only 8000 mini-batches, which takes ~16h on my workstation, gives a top 1 accuracy of 90.26% and top 3 accuracy of 96.48%. Note that the network hasn't fully convergenced yet (though almost), so training for a longer time should be able to improve the performance furthur. As reported in [this project report](http://cs231n.stanford.edu/reports/zyh_project.pdf), the network has the potential to achieve a top 1 accuracy of 95% when properly trained (maybe even better, since in the aforementioned paper they didn't use batch normalization, which should improve generalization capacity of the network). So if you have a powerful GPU, run more training steps.
+
+This is [my checkpoint](https://pan.baidu.com/s/1o7CJrBW) at step 8000. If you want to try it on your laptop or something else, feel free to do so!
 
 
 I also attached the learning curve of `chinese_character_recognition_bn.py`. Check it to obtain some intuition of the learning procedure.
