@@ -30,7 +30,9 @@ After training only 8000 mini-batches, which takes ~16h on my workstation, gives
 This is [my checkpoint](https://pan.baidu.com/s/1o7CJrBW) at step 8000. If you want to try it on your laptop or something else, feel free to do so!
 
 
-I also attached the learning curve of `chinese_character_recognition_bn.py`. Check it to obtain some intuition of the learning procedure.
+I also attached the learning curve of `chinese_character_recognition_bn.py`:
+
 ![accuracy-bn](https://github.com/soloice/Chinese-Character-Recognition/blob/master/accuracy-bn.PNG)
+
 ![loss-bn](https://github.com/soloice/Chinese-Character-Recognition/blob/master/loss-bn.PNG)
 
