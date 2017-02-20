@@ -1,10 +1,11 @@
-import tensorflow as tf
+# top 1 accuracy 0.9249791286257038 top k accuracy 0.9747623788455786
 import os
 import random
 import tensorflow.contrib.slim as slim
 import time
 import logging
 import numpy as np
+import tensorflow as tf
 import pickle
 from PIL import Image
 from tensorflow.python.ops import control_flow_ops
@@ -22,7 +23,7 @@ tf.app.flags.DEFINE_boolean('random_flip_up_down', False, "Whether to random fli
 tf.app.flags.DEFINE_boolean('random_brightness', True, "whether to adjust brightness")
 tf.app.flags.DEFINE_boolean('random_contrast', True, "whether to random constrast")
 
-tf.app.flags.DEFINE_integer('charset_size', 3755, "Choose the first `charset_size` character to conduct our experiment.")
+tf.app.flags.DEFINE_integer('charset_size', 3755, "Choose the first `charset_size` characters only.")
 tf.app.flags.DEFINE_integer('image_size', 64, "Needs to provide same value as in training.")
 tf.app.flags.DEFINE_boolean('gray', True, "whether to change the rbg to gray")
 tf.app.flags.DEFINE_integer('max_steps', 16002, 'the max training steps ')
@@ -37,8 +38,9 @@ tf.app.flags.DEFINE_string('log_dir', './log', 'the logging dir')
 tf.app.flags.DEFINE_boolean('restore', False, 'whether to restore from checkpoint')
 tf.app.flags.DEFINE_boolean('epoch', 1, 'Number of epoches')
 tf.app.flags.DEFINE_boolean('batch_size', 128, 'Validation batch size')
-tf.app.flags.DEFINE_string('mode', 'train', 'Running mode. One of {"train", "valid", "test"}')
+tf.app.flags.DEFINE_string('mode', 'validation', 'Running mode. One of {"train", "valid", "test"}')
 
+gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.333)
 FLAGS = tf.app.flags.FLAGS
 
 
@@ -86,10 +88,11 @@ class DataIterator:
         return image_batch, label_batch
 
 
-def build_graph(top_k, is_training=False):
+def build_graph(top_k):
     keep_prob = tf.placeholder(dtype=tf.float32, shape=[], name='keep_prob')
     images = tf.placeholder(dtype=tf.float32, shape=[None, 64, 64, 1], name='image_batch')
     labels = tf.placeholder(dtype=tf.int64, shape=[None], name='label_batch')
+    is_training = tf.placeholder(dtype=tf.bool, shape=[], name='train_flag')
     with tf.device('/cpu:0'):
         with slim.arg_scope([slim.conv2d, slim.fully_connected],
                             normalizer_fn=slim.batch_norm,
@@ -109,21 +112,17 @@ def build_graph(top_k, is_training=False):
                                        activation_fn=tf.nn.relu, scope='fc1')
             logits = slim.fully_connected(slim.dropout(fc1, keep_prob), FLAGS.charset_size, activation_fn=None,
                                           scope='fc2')
-        loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits, labels))
+        loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits, labels=labels))
         accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(logits, 1), labels), tf.float32))
 
-        if is_training:
-            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-            if update_ops:
-                updates = tf.group(*update_ops)
-                loss = control_flow_ops.with_dependencies([updates], loss)
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        if update_ops:
+            updates = tf.group(*update_ops)
+            loss = control_flow_ops.with_dependencies([updates], loss)
 
         global_step = tf.get_variable("step", [], initializer=tf.constant_initializer(0.0), trainable=False)
-        # rate = tf.train.exponential_decay(0.01, global_step, decay_steps=2000, decay_rate=0.8, staircase=True)
-        rate = 0.01
-        # rate = tf.train.exponential_decay(0.01, global_step, decay_steps=500, decay_rate=0.7, staircase=True)
-        # rate = tf.train.exponential_decay(0.1, global_step, decay_steps=2000, decay_rate=0.8, staircase=True)
-        train_op = tf.train.AdamOptimizer(learning_rate=rate).minimize(loss, global_step=global_step)
+        optimizer = tf.train.AdamOptimizer(learning_rate=0.1)
+        train_op = slim.learning.create_train_op(loss, optimizer, global_step=global_step)
         probabilities = tf.nn.softmax(logits)
 
         tf.summary.scalar('loss', loss)
@@ -139,6 +138,7 @@ def build_graph(top_k, is_training=False):
             'global_step': global_step,
             'train_op': train_op,
             'loss': loss,
+            'is_training': is_training,
             'accuracy': accuracy,
             'accuracy_top_k': accuracy_in_top_k,
             'merged_summary_op': merged_summary_op,
@@ -152,10 +152,10 @@ def train():
     train_feeder = DataIterator(data_dir='../data/train/')
     test_feeder = DataIterator(data_dir='../data/test/')
     model_name = 'chinese-rec-model'
-    with tf.Session() as sess:
+    with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
         train_images, train_labels = train_feeder.input_pipeline(batch_size=FLAGS.batch_size, aug=True)
         test_images, test_labels = test_feeder.input_pipeline(batch_size=FLAGS.batch_size)
-        graph = build_graph(top_k=1, is_training=True)
+        graph = build_graph(top_k=1)
         saver = tf.train.Saver()
         sess.run(tf.global_variables_initializer())
         coord = tf.train.Coordinator()
@@ -180,7 +180,8 @@ def train():
                 train_images_batch, train_labels_batch = sess.run([train_images, train_labels])
                 feed_dict = {graph['images']: train_images_batch,
                              graph['labels']: train_labels_batch,
-                             graph['keep_prob']: 0.8}
+                             graph['keep_prob']: 0.8,
+                             graph['is_training']: True}
                 _, loss_val, train_summary, step = sess.run(
                     [graph['train_op'], graph['loss'], graph['merged_summary_op'], graph['global_step']],
                     feed_dict=feed_dict)
@@ -193,11 +194,12 @@ def train():
                     test_images_batch, test_labels_batch = sess.run([test_images, test_labels])
                     feed_dict = {graph['images']: test_images_batch,
                                  graph['labels']: test_labels_batch,
-                                 graph['keep_prob']: 1.0}
-                    accuracy_test, test_summary, step = sess.run(
-                        [graph['accuracy'], graph['merged_summary_op'], graph['global_step']],
-                        feed_dict=feed_dict)
-                    test_writer.add_summary(test_summary, step)
+                                 graph['keep_prob']: 1.0,
+                                 graph['is_training']: False}
+                    accuracy_test, test_summary = sess.run([graph['accuracy'], graph['merged_summary_op']],
+                                                           feed_dict=feed_dict)
+                    if step > 300:
+                        test_writer.add_summary(test_summary, step)
                     logger.info('===============Eval a batch=======================')
                     logger.info('the step {0} test accuracy: {1}'
                                 .format(step, accuracy_test))
@@ -248,7 +250,8 @@ def validation():
                 test_images_batch, test_labels_batch = sess.run([test_images, test_labels])
                 feed_dict = {graph['images']: test_images_batch,
                              graph['labels']: test_labels_batch,
-                             graph['keep_prob']: 1.0}
+                             graph['keep_prob']: 1.0,
+                             graph['is_training']: False}
                 batch_labels, probs, indices, acc_1, acc_k = sess.run([graph['labels'],
                                                                        graph['predicted_val_top_k'],
                                                                        graph['predicted_index_top_k'],
