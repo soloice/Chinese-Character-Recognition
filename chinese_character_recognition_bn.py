@@ -152,7 +152,7 @@ def train():
     train_feeder = DataIterator(data_dir='../data/train/')
     test_feeder = DataIterator(data_dir='../data/test/')
     model_name = 'chinese-rec-model'
-    with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options,allow_soft_placement=True)) as sess:
+    with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True)) as sess:
         train_images, train_labels = train_feeder.input_pipeline(batch_size=FLAGS.batch_size, aug=True)
         test_images, test_labels = test_feeder.input_pipeline(batch_size=FLAGS.batch_size)
         graph = build_graph(top_k=1)
@@ -285,7 +285,7 @@ def inference(image):
     temp_image = temp_image.reshape([-1, 64, 64, 1])
     with tf.Session() as sess:
         logger.info('========start inference============')
-        images = tf.placeholder(dtype=tf.float32, shape=[None, 64, 64, 1])
+        # images = tf.placeholder(dtype=tf.float32, shape=[None, 64, 64, 1])
         # Pass a shadow label 0. This label will not affect the computation graph.
         graph = build_graph(top_k=3)
         saver = tf.train.Saver()
@@ -293,7 +293,9 @@ def inference(image):
         if ckpt:
             saver.restore(sess, ckpt)
         predict_val, predict_index = sess.run([graph['predicted_val_top_k'], graph['predicted_index_top_k']],
-                                              feed_dict={images: temp_image})
+                                              feed_dict={graph['images']: temp_image,
+                                                         graph['keep_prob']: 1.0,
+                                                         graph['is_training']: False})
     return predict_val, predict_index
 
 
